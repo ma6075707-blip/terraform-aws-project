@@ -76,13 +76,6 @@ pipeline {
             }
         }
 
-        stage('Destroy Approval') {
-            steps {
-                input message: 'WARNING: Destroy all Terraform infrastructure?',
-                      ok: 'Destroy'
-            }
-        }
-
         stage('Terraform Destroy') {
             steps {
                 withCredentials([
