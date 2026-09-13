@@ -1,6 +1,14 @@
-```groovy
+
 pipeline {
     agent any
+
+    parameters {
+        choice(
+            name: 'ACTION',
+            choices: ['APPLY', 'DESTROY'],
+            description: 'Choose Terraform action'
+        )
+    }
 
     environment {
         AWS_DEFAULT_REGION = 'eu-west-1'
@@ -27,27 +35,22 @@ pipeline {
 
         stage('Terraform Format') {
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-terraform']
-                ]) {
-                    sh 'terraform fmt -check -recursive'
-                }
+                sh 'terraform fmt -check -recursive'
             }
         }
 
         stage('Terraform Validate') {
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-terraform']
-                ]) {
-                    sh 'terraform validate'
-                }
+                sh 'terraform validate'
             }
         }
 
         stage('Terraform Plan') {
+            when {
+                expression {
+                    params.ACTION == 'APPLY'
+                }
+            }
             steps {
                 withCredentials([
                     [$class: 'AmazonWebServicesCredentialsBinding',
@@ -58,7 +61,12 @@ pipeline {
             }
         }
 
-        stage('Approval') {
+        stage('Approval - Apply') {
+            when {
+                expression {
+                    params.ACTION == 'APPLY'
+                }
+            }
             steps {
                 input message: 'Apply Terraform infrastructure?',
                       ok: 'Apply'
@@ -66,6 +74,11 @@ pipeline {
         }
 
         stage('Terraform Apply') {
+            when {
+                expression {
+                    params.ACTION == 'APPLY'
+                }
+            }
             steps {
                 withCredentials([
                     [$class: 'AmazonWebServicesCredentialsBinding',
@@ -76,7 +89,24 @@ pipeline {
             }
         }
 
+        stage('Approval - Destroy') {
+            when {
+                expression {
+                    params.ACTION == 'DESTROY'
+                }
+            }
+            steps {
+                input message: 'WARNING: Destroy Terraform infrastructure?',
+                      ok: 'Destroy'
+            }
+        }
+
         stage('Terraform Destroy') {
+            when {
+                expression {
+                    params.ACTION == 'DESTROY'
+                }
+            }
             steps {
                 withCredentials([
                     [$class: 'AmazonWebServicesCredentialsBinding',
@@ -90,12 +120,12 @@ pipeline {
 
     post {
         success {
-            echo 'Infrastructure deployed and destroyed successfully!'
+            echo "Terraform ${params.ACTION} completed successfully!"
         }
 
         failure {
-            echo 'Infrastructure deployment failed!'
+            echo "Terraform ${params.ACTION} failed!"
         }
     }
 }
-```
+
