@@ -1,3 +1,4 @@
+```groovy
 pipeline {
     agent any
 
@@ -74,11 +75,29 @@ pipeline {
                 }
             }
         }
+
+        stage('Destroy Approval') {
+            steps {
+                input message: 'WARNING: Destroy all Terraform infrastructure?',
+                      ok: 'Destroy'
+            }
+        }
+
+        stage('Terraform Destroy') {
+            steps {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-terraform']
+                ]) {
+                    sh 'terraform destroy -auto-approve'
+                }
+            }
+        }
     }
 
     post {
         success {
-            echo 'Infrastructure deployed successfully!'
+            echo 'Infrastructure deployed and destroyed successfully!'
         }
 
         failure {
@@ -86,3 +105,4 @@ pipeline {
         }
     }
 }
+```
